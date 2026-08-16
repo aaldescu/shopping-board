@@ -1,20 +1,41 @@
-# Docker Compose file for Dokploy (or plain docker compose).
+# Docker Compose file for Dokploy with Traefik TLS (Let's Encrypt).
 #
-# PocketBase serves both the API and the built frontend on port 8080.
-# In Dokploy, add a domain for this service pointing at container port 8080
-# with HTTPS (Let's Encrypt) enabled — see README.md.
+# Set the DOMAIN environment variable in Dokploy (service → Environment tab):
+#   DOMAIN=board.example.com
+# and make sure the subdomain's DNS A-record points at your Dokploy server.
+#
+# Traefik reaches the container over the shared dokploy-network, so no host
+# port publishing is needed.
 services:
   shopping-board:
     build: .
     restart: unless-stopped
     expose:
       - 8080
+    networks:
+      - dokploy-network
     volumes:
       # Persistent PocketBase data (SQLite DB + uploaded images).
       # Dokploy keeps "../files" bind mounts on a persistent host path, so
       # data survives redeploys. A named volume works too:
       #   - pocketbase-data:/pb/pb_data
       - ../files/pb_data:/pb/pb_data
+    labels:
+      - traefik.enable=true
+      # HTTP → HTTPS redirect
+      - traefik.http.routers.shopping-board-web.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.shopping-board-web.entrypoints=web
+      - traefik.http.routers.shopping-board-web.middlewares=redirect-to-https@file
+      # HTTPS with Let's Encrypt
+      - traefik.http.routers.shopping-board-websecure.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.shopping-board-websecure.entrypoints=websecure
+      - traefik.http.routers.shopping-board-websecure.tls.certresolver=letsencrypt
+      # Container port Traefik forwards to
+      - traefik.http.services.shopping-board.loadbalancer.server.port=8080
+
+networks:
+  dokploy-network:
+    external: true
 
 # If you prefer a named volume instead of the Dokploy files bind mount,
 # uncomment below and swap the volume line above.

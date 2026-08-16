@@ -74,10 +74,18 @@ The repo ships a `Dockerfile` and `docker-compose.yml` ready for Dokploy.
    survive redeploys and rebuilds. (If you deploy without Dokploy, switch to
    the named-volume variant commented in `docker-compose.yml`.)
 
-3. **Domain + SSL** — in the service's *Domains* tab add your subdomain
-   (e.g. `board.example.com`), set the service port to **8080**, and enable
-   **HTTPS** with the **Let's Encrypt** certificate provider. Make sure the
-   subdomain's DNS A-record points at your Dokploy server first.
+3. **Domain + SSL** — the compose file carries the Traefik labels for TLS:
+   an HTTP router with the `redirect-to-https@file` middleware and an HTTPS
+   router using the `letsencrypt` certificate resolver, with the container
+   joined to the external `dokploy-network`. All you have to do:
+   - point the subdomain's DNS A-record at your Dokploy server;
+   - in the service's *Environment* tab set `DOMAIN=board.example.com`
+     (your subdomain) and redeploy.
+
+   No entry in the *Domains* tab is needed — the labels do the routing. If
+   you prefer managing the domain from the Dokploy UI instead, delete the
+   `labels:` block and add the domain in the *Domains* tab (port **8080**,
+   HTTPS + Let's Encrypt).
 
 4. **Deploy**, then create the PocketBase superuser (admin) account:
 
