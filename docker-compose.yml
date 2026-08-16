@@ -1,0 +1,22 @@
+# Docker Compose file for Dokploy (or plain docker compose).
+#
+# PocketBase serves both the API and the built frontend on port 8080.
+# In Dokploy, add a domain for this service pointing at container port 8080
+# with HTTPS (Let's Encrypt) enabled — see README.md.
+services:
+  shopping-board:
+    build: .
+    restart: unless-stopped
+    expose:
+      - 8080
+    volumes:
+      # Persistent PocketBase data (SQLite DB + uploaded images).
+      # Dokploy keeps "../files" bind mounts on a persistent host path, so
+      # data survives redeploys. A named volume works too:
+      #   - pocketbase-data:/pb/pb_data
+      - ../files/pb_data:/pb/pb_data
+
+# If you prefer a named volume instead of the Dokploy files bind mount,
+# uncomment below and swap the volume line above.
+# volumes:
+#   pocketbase-data:
