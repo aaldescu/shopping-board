@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { pb, extractUrl, type BoardRecord, type ItemRecord } from '../lib/pb'
+import {
+  pb,
+  extractUrl,
+  fetchOgPreview,
+  downloadImage,
+  formatPrice,
+  type BoardRecord,
+  type ItemRecord,
+} from '../lib/pb'
 import ItemCard from '../components/ItemCard'
 import ItemDialog, { type DialogState } from '../components/ItemDialog'
 
@@ -34,6 +42,7 @@ export default function BoardPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [dialog, setDialog] = useState<DialogState | null>(null)
   const [notFound, setNotFound] = useState(false)
+  const [pendingIds, setPendingIds] = useState<ReadonlySet<string>>(new Set())
   const [hint, setHint] = useState(false)
   const [titleDraft, setTitleDraft] = useState('')
 
@@ -116,12 +125,12 @@ export default function BoardPage() {
     }
   }, [])
 
-  // Shared / deep-linked URL → open the add dialog prefilled.
+  // Shared / deep-linked URL → quick-add it straight to the board.
   useEffect(() => {
     const add = searchParams.get('add')
     if (add) {
-      setDialog({ mode: 'add', prefillUrl: add, spawn: viewCenterWorld() })
       setSearchParams({}, { replace: true })
+      void quickAdd(add, viewCenterWorld())
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
@@ -153,6 +162,77 @@ export default function BoardPage() {
     pb.collection('items')
       .update(id, { x: Math.round(item.x), y: Math.round(item.y), w: Math.round(item.w || 260) })
       .catch(() => {})
+  }
+
+  /** Replace an item with its server version, but never yank it out from
+   *  under an active drag — local geometry wins in that case. */
+  function mergeUpdated(updated: ItemRecord) {
+    setItems((prev) =>
+      prev.map((i) => {
+        if (i.id !== updated.id) return i
+        const g = gestureRef.current
+        const dragging = g && (g.type === 'item' || g.type === 'resize') && g.id === updated.id
+        return dragging ? { ...updated, x: i.x, y: i.y, w: i.w } : updated
+      }),
+    )
+  }
+
+  /**
+   * Quick add: drop a URL-only card on the board immediately, then fetch
+   * title/price/image in the background and fill the card in. Multiple
+   * quick-adds simply run concurrently, each updating its own card.
+   */
+  async function quickAdd(url: string, pos: { x: number; y: number }) {
+    if (!/^https?:\/\//i.test(url)) return
+    let rec: ItemRecord
+    try {
+      rec = await pb.collection('items').create<ItemRecord>({
+        board: boardId,
+        url,
+        x: Math.round(pos.x),
+        y: Math.round(pos.y),
+        w: 260,
+      })
+    } catch {
+      return
+    }
+    setItems((prev) => (prev.some((i) => i.id === rec.id) ? prev : [...prev, rec]))
+    setPendingIds((prev) => new Set(prev).add(rec.id))
+
+    const fallbackTitle = (() => {
+      try {
+        return new URL(url).hostname.replace(/^www\./, '')
+      } catch {
+        return 'Link'
+      }
+    })()
+
+    try {
+      const preview = await fetchOgPreview(url)
+      const fd = new FormData()
+      fd.set('title', (preview.title || fallbackTitle).substring(0, 500))
+      if (preview.price) fd.set('price', formatPrice(preview.price, preview.currency))
+      if (preview.image) {
+        const file = await downloadImage(preview.image)
+        if (file) fd.set('image', file)
+        else fd.set('image_url', preview.image)
+      }
+      mergeUpdated(await pb.collection('items').update<ItemRecord>(rec.id, fd))
+    } catch {
+      try {
+        mergeUpdated(
+          await pb.collection('items').update<ItemRecord>(rec.id, { title: fallbackTitle }),
+        )
+      } catch {
+        // card stays as a bare link; user can edit it manually
+      }
+    } finally {
+      setPendingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(rec.id)
+        return next
+      })
+    }
   }
 
   function bringToFront(id: string) {
@@ -330,7 +410,7 @@ export default function BoardPage() {
       const url = extractUrl(text)
       if (url) {
         e.preventDefault()
-        setDialog({ mode: 'add', prefillUrl: url, spawn: viewCenterWorld() })
+        void quickAdd(url, viewCenterWorld())
       }
     }
     window.addEventListener('paste', onPaste)
@@ -368,7 +448,7 @@ export default function BoardPage() {
       return
     }
     const url = extractUrl(e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text'))
-    if (url) setDialog({ mode: 'add', prefillUrl: url, spawn: pos })
+    if (url) void quickAdd(url, pos)
   }
 
   /* ---------- keyboard ---------- */
@@ -454,7 +534,13 @@ export default function BoardPage() {
           aria-label="Board name"
         />
         <div className="topbar-spacer" />
-        <span className="muted">{items.length} item{items.length === 1 ? '' : 's'}</span>
+        <span className="muted">
+          {(() => {
+            const bought = items.filter((i) => i.bought).length
+            const label = `${items.length} item${items.length === 1 ? '' : 's'}`
+            return bought > 0 ? `${label} · ${bought} bought` : label
+          })()}
+        </span>
       </header>
 
       <div
@@ -483,6 +569,7 @@ export default function BoardPage() {
               item={item}
               selected={item.id === selectedId}
               dragging={item.id === draggingId}
+              pending={pendingIds.has(item.id)}
             />
           ))}
         </div>
@@ -573,6 +660,11 @@ export default function BoardPage() {
           state={dialog}
           boardId={boardId}
           onClose={() => setDialog(null)}
+          onQuickAdd={(url) => {
+            const spawn = dialog.spawn ?? viewCenterWorld()
+            setDialog(null)
+            void quickAdd(url, spawn)
+          }}
           onSaved={(item) => {
             setItems((prev) => {
               const exists = prev.some((i) => i.id === item.id)

@@ -21,12 +21,17 @@ interface Props {
   boardId: string
   onClose: () => void
   onSaved: (item: ItemRecord) => void
+  /** Quick add: create the card immediately, fetch details in the background. */
+  onQuickAdd?: (url: string) => void
 }
 
-export default function ItemDialog({ state, boardId, onClose, onSaved }: Props) {
+export default function ItemDialog({ state, boardId, onClose, onSaved, onQuickAdd }: Props) {
   const editing = state.mode === 'edit' ? state.item : undefined
 
+  // Add mode starts as a minimal "paste a link" view unless prefilled.
+  const [expanded, setExpanded] = useState(state.mode === 'edit' || !!state.prefillUrl)
   const [url, setUrl] = useState(editing?.url || state.prefillUrl || '')
+  const [bought, setBought] = useState(editing?.bought ?? false)
   const [title, setTitle] = useState(editing?.title || '')
   const [price, setPrice] = useState(editing?.price || '')
   const [note, setNote] = useState(editing?.note || '')
@@ -112,6 +117,7 @@ export default function ItemDialog({ state, boardId, onClose, onSaved }: Props) 
       fd.set('image_url', imageFile ? '' : remoteImageUrl)
       if (imageFile) fd.set('image', imageFile)
       else if (clearImage) fd.set('image', '')
+      if (state.mode === 'edit') fd.set('bought', bought ? 'true' : 'false')
 
       let saved: ItemRecord
       if (state.mode === 'add') {
@@ -130,6 +136,76 @@ export default function ItemDialog({ state, boardId, onClose, onSaved }: Props) 
     } finally {
       setSaving(false)
     }
+  }
+
+  function submitQuick(value?: string) {
+    const u = (value ?? url).trim()
+    if (!/^https?:\/\//i.test(u)) {
+      setError('Paste a full product URL (starting with http:// or https://).')
+      return
+    }
+    if (onQuickAdd) onQuickAdd(u)
+    else setExpanded(true)
+  }
+
+  if (!expanded) {
+    return (
+      <div
+        className="dialog-backdrop"
+        onPointerDown={(e) => {
+          if (e.target === e.currentTarget) onClose()
+        }}
+      >
+        <div className="dialog" role="dialog" aria-modal="true">
+          <h2>Add to board</h2>
+          <div className="field">
+            <label>Product / shop URL</label>
+            <input
+              className="input"
+              type="url"
+              autoFocus
+              placeholder="https://shop.example.com/product…"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              onPaste={(e) => {
+                const pasted = e.clipboardData.getData('text').trim()
+                if (/^https?:\/\//i.test(pasted)) {
+                  e.preventDefault()
+                  submitQuick(pasted)
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  submitQuick()
+                }
+              }}
+            />
+            <p className="muted">
+              Paste a link and the card is added right away — details load in the background.
+            </p>
+          </div>
+          {error && <p className="error-text">{error}</p>}
+          <div className="dialog-actions" style={{ justifyContent: 'space-between' }}>
+            <button className="btn btn-ghost" onClick={() => setExpanded(true)}>
+              More options
+            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn" onClick={onClose}>
+                Cancel
+              </button>
+              <button
+                className="btn btn-primary"
+                disabled={!/^https?:\/\//i.test(url.trim())}
+                onClick={() => submitQuick()}
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -232,6 +308,17 @@ export default function ItemDialog({ state, boardId, onClose, onSaved }: Props) 
             onChange={(e) => setNote(e.target.value)}
           />
         </div>
+
+        {state.mode === 'edit' && (
+          <label className="check-row">
+            <input
+              type="checkbox"
+              checked={bought}
+              onChange={(e) => setBought(e.target.checked)}
+            />
+            I bought it ✓
+          </label>
+        )}
 
         {error && <p className="error-text">{error}</p>}
 

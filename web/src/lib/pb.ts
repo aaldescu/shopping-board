@@ -28,6 +28,7 @@ export interface ItemRecord {
   y: number
   w: number
   note: string
+  bought: boolean
   created: string
   updated: string
 }

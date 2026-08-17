@@ -12,9 +12,11 @@ interface Props {
   item: ItemRecord
   selected: boolean
   dragging: boolean
+  /** Quick-added card whose details are still being fetched. */
+  pending?: boolean
 }
 
-export default function ItemCard({ item, selected, dragging }: Props) {
+export default function ItemCard({ item, selected, dragging, pending }: Props) {
   const fileUrl = itemImageUrl(item, '512x0')
   const imgSrc = fileUrl || item.image_url
   const domain = domainOf(item.url)
@@ -22,7 +24,10 @@ export default function ItemCard({ item, selected, dragging }: Props) {
   return (
     <div
       className={
-        'item-card' + (selected ? ' selected' : '') + (dragging ? ' dragging' : '')
+        'item-card' +
+        (selected ? ' selected' : '') +
+        (dragging ? ' dragging' : '') +
+        (item.bought ? ' bought' : '')
       }
       data-item-id={item.id}
       style={{
@@ -40,9 +45,15 @@ export default function ItemCard({ item, selected, dragging }: Props) {
           loading="lazy"
           referrerPolicy="no-referrer"
         />
+      ) : pending ? (
+        <div className="item-card-loading">
+          <span className="spinner" />
+          Fetching details…
+        </div>
       ) : (
         <div className="item-card-noimg">🛒</div>
       )}
+      {item.bought && <div className="bought-badge">✓ Bought</div>}
       {(item.title || item.price || domain || item.note) && (
         <div className="item-card-body">
           {item.title && <div className="item-card-title">{item.title}</div>}
