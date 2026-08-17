@@ -14,6 +14,12 @@ services:
       - 8080
     networks:
       - dokploy-network
+    environment:
+      # Optional AI fallback for product-page scraping (see README).
+      # Set OPENAI_API_KEY in the Dokploy Environment tab to enable it.
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-5-mini}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
     volumes:
       # Persistent PocketBase data (SQLite DB + uploaded images).
       # Dokploy keeps "../files" bind mounts on a persistent host path, so

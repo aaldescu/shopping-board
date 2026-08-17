@@ -17,15 +17,17 @@ routerAdd(
   "/api/og-preview",
   (e) => {
     const utils = require(`${__hooks}/utils.js`);
+    const ai = require(`${__hooks}/ai.js`);
     const url = (e.request.url.query().get("url") || "").trim();
     const err = utils.sbValidateUrl(url);
     if (err) {
       return e.json(400, { error: err });
     }
 
-    let res;
+    let html = "";
+    let fetchProblem = "";
     try {
-      res = $http.send({
+      const res = $http.send({
         url: url,
         method: "GET",
         timeout: 20,
@@ -36,15 +38,14 @@ routerAdd(
           "Accept-Language": "en-US,en;q=0.9",
         },
       });
+      if (res.statusCode >= 200 && res.statusCode < 400) {
+        html = toString(res.body).substring(0, 1500000);
+      } else {
+        fetchProblem = "page responded with status " + res.statusCode;
+      }
     } catch (fetchErr) {
-      return e.json(502, { error: "could not fetch the page" });
+      fetchProblem = "could not fetch the page";
     }
-
-    if (res.statusCode < 200 || res.statusCode >= 400) {
-      return e.json(502, { error: "page responded with status " + res.statusCode });
-    }
-
-    const html = toString(res.body).substring(0, 1500000);
 
     const meta = (name) => {
       const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -120,13 +121,37 @@ routerAdd(
       }
     }
 
+    let siteName = meta("og:site_name");
+    let description = meta("og:description").substring(0, 1000);
+
+    // AI fallback (optional, needs OPENAI_API_KEY): fill in what classic
+    // OG/JSON-LD parsing could not - or handle pages that blocked us.
+    const cfg = ai.aiConfig();
+    if (cfg && (!title || !image || !price)) {
+      const extra = html
+        ? ai.extractFromHtml(cfg, url, html)
+        : ai.extractViaWebSearch(cfg, url);
+      if (extra) {
+        title = title || extra.title;
+        image = image || extra.image;
+        price = price || extra.price;
+        currency = currency || extra.currency;
+        siteName = siteName || extra.siteName;
+        description = description || extra.description;
+      }
+    }
+
+    if (fetchProblem && !title && !image && !price) {
+      return e.json(502, { error: fetchProblem });
+    }
+
     return e.json(200, {
       title: title.substring(0, 500),
       image: image,
       price: price,
       currency: currency,
-      siteName: meta("og:site_name"),
-      description: meta("og:description").substring(0, 1000),
+      siteName: siteName,
+      description: description,
     });
   },
   $apis.requireAuth()

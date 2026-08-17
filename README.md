@@ -101,11 +101,37 @@ The repo ships a `Dockerfile` and `docker-compose.yml` ready for Dokploy.
 > home screen (Android/Chrome), "Shopping Board" shows up in the share sheet
 > for links — sharing a product URL lands on a board picker.
 
+## AI-assisted scraping (optional)
+
+Classic Open Graph scraping fails on JavaScript-heavy shops or shops with
+bot protection (Lidl, Amazon, …). Setting an OpenAI API key enables a
+smart fallback in `/api/og-preview`:
+
+1. Plain OG/JSON-LD extraction runs first — if it finds title, image and
+   price, **no AI call is made** (fast and free).
+2. If the page was fetched but fields are missing, a condensed version of
+   the HTML is sent to the model for structured extraction.
+3. If the shop blocked the server entirely, the model is asked to look up
+   the product page itself using OpenAI's **web search** tool.
+
+Configure via environment variables (Dokploy → service → *Environment*):
+
+| Variable          | Default                     | Purpose                       |
+| ----------------- | --------------------------- | ----------------------------- |
+| `OPENAI_API_KEY`  | *(unset — AI disabled)*     | enables the fallback          |
+| `OPENAI_MODEL`    | `gpt-5-mini`                | any model with JSON output    |
+| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | any OpenAI-compatible API     |
+
+Costs are minimal: calls happen only when classic extraction comes up
+short, inputs are condensed, and a mini-tier model is the default. Any
+OpenAI-compatible endpoint works for the HTML-extraction path (step 2);
+the web-search path (step 3) requires the OpenAI Responses API.
+
 ## Notes
 
 - The metadata fetcher (`/api/og-preview`) and image proxy (`/api/img`)
   require a signed-in user and refuse private/internal hosts.
-- Some shops block server-side scraping; in that case the card can be filled
-  in manually or with an uploaded/pasted picture.
+- If a shop blocks scraping and no AI key is set, the card can still be
+  filled in manually or with an uploaded/pasted picture.
 - To enable password-reset emails, configure SMTP in the PocketBase admin
   dashboard (*Settings → Mail settings*).
