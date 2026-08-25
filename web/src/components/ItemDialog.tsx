@@ -67,17 +67,27 @@ export default function ItemDialog({ state, boardId, onClose, onSaved, onQuickAd
       const preview = await fetchOgPreview(u)
       if (preview.title && !title) setTitle(preview.title)
       if (preview.price && !price) setPrice(formatPrice(preview.price, preview.currency))
+      if (preview.trace) {
+        // eslint-disable-next-line no-console
+        console.groupCollapsed(`🛍️ og-preview: ${u}`)
+        // eslint-disable-next-line no-console
+        console.table(preview.trace)
+        // eslint-disable-next-line no-console
+        console.groupEnd()
+      }
       if (preview.image) {
         setRemoteImageUrl(preview.image)
         setClearImage(false)
-        const file = await downloadImage(preview.image)
-        if (file) {
-          setImageFile(file)
-          setImagePreview(URL.createObjectURL(file))
+        const dl = await downloadImage(preview.image)
+        if (dl.file) {
+          setImageFile(dl.file)
+          setImagePreview(URL.createObjectURL(dl.file))
         } else {
           // Could not proxy the image — fall back to hotlinking it.
           setImageFile(null)
           setImagePreview(preview.image)
+          // eslint-disable-next-line no-console
+          console.warn(`image download failed (${dl.reason}); hotlinking ${preview.image}`)
         }
       }
       if (!preview.title && !preview.image && !preview.price) {

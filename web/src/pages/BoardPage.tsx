@@ -209,14 +209,29 @@ export default function BoardPage() {
 
     try {
       const preview = await fetchOgPreview(url)
+      // eslint-disable-next-line no-console
+      console.groupCollapsed(`🛍️ og-preview: ${url}`)
+      // eslint-disable-next-line no-console
+      console.table(preview.trace ?? [])
       const fd = new FormData()
       fd.set('title', (preview.title || fallbackTitle).substring(0, 500))
       if (preview.price) fd.set('price', formatPrice(preview.price, preview.currency))
       if (preview.image) {
-        const file = await downloadImage(preview.image)
-        if (file) fd.set('image', file)
-        else fd.set('image_url', preview.image)
+        const dl = await downloadImage(preview.image)
+        if (dl.file) {
+          fd.set('image', dl.file)
+        } else {
+          // Store the remote URL and hotlink it instead of a durable copy.
+          fd.set('image_url', preview.image)
+          // eslint-disable-next-line no-console
+          console.warn(`image download failed (${dl.reason}); hotlinking ${preview.image}`)
+        }
+      } else {
+        // eslint-disable-next-line no-console
+        console.warn('no image found for this page')
       }
+      // eslint-disable-next-line no-console
+      console.groupEnd()
       mergeUpdated(await pb.collection('items').update<ItemRecord>(rec.id, fd))
     } catch {
       try {

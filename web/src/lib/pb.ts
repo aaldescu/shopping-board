@@ -33,6 +33,11 @@ export interface ItemRecord {
   updated: string
 }
 
+export interface TraceStep {
+  step: string
+  [key: string]: unknown
+}
+
 export interface OgPreview {
   title: string
   image: string
@@ -40,6 +45,7 @@ export interface OgPreview {
   currency: string
   siteName: string
   description: string
+  trace?: TraceStep[]
 }
 
 export function itemImageUrl(item: ItemRecord, thumb = ''): string {
@@ -52,24 +58,38 @@ export async function fetchOgPreview(url: string): Promise<OgPreview> {
   return await pb.send('/api/og-preview', { query: { url } })
 }
 
+export interface ImageDownload {
+  file: File | null
+  reason: string
+}
+
 /**
  * Download a remote image through the same-origin proxy so it can be stored
- * as a durable file on the item. Returns null when the download fails —
- * callers then fall back to keeping just the metadata.
+ * as a durable file on the item. Returns the file plus a human-readable
+ * reason string ('ok' on success) so callers can log why it failed.
  */
-export async function downloadImage(url: string): Promise<File | null> {
+export async function downloadImage(url: string): Promise<ImageDownload> {
   try {
     const res = await fetch(`${pb.baseURL}/api/img?url=${encodeURIComponent(url)}`, {
       headers: { Authorization: pb.authStore.token },
     })
-    if (!res.ok) return null
+    if (!res.ok) {
+      let detail = `proxy status ${res.status}`
+      try {
+        const body = await res.json()
+        if (body?.error) detail = body.error
+      } catch {
+        /* non-JSON error body */
+      }
+      return { file: null, reason: detail }
+    }
     const type = res.headers.get('content-type') || 'image/jpeg'
-    if (!type.startsWith('image/')) return null
+    if (!type.startsWith('image/')) return { file: null, reason: `not an image (${type})` }
     const blob = await res.blob()
     const ext = (type.split('/')[1] || 'jpg').split(';')[0].replace('jpeg', 'jpg')
-    return new File([blob], `product.${ext}`, { type })
-  } catch {
-    return null
+    return { file: new File([blob], `product.${ext}`, { type }), reason: 'ok' }
+  } catch (err) {
+    return { file: null, reason: `network error: ${String(err)}` }
   }
 }
 

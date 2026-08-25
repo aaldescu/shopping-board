@@ -24,6 +24,11 @@ routerAdd(
       return e.json(400, { error: err });
     }
 
+    // Step-by-step trace so both the admin log and the browser console can
+    // show exactly what happened for this URL.
+    const trace = [];
+    const step = (name, info) => trace.push(Object.assign({ step: name }, info || {}));
+
     let html = "";
     let fetchProblem = "";
     try {
@@ -40,11 +45,14 @@ routerAdd(
       });
       if (res.statusCode >= 200 && res.statusCode < 400) {
         html = toString(res.body).substring(0, 1500000);
+        step("fetch", { ok: true, status: res.statusCode, htmlBytes: html.length });
       } else {
         fetchProblem = "page responded with status " + res.statusCode;
+        step("fetch", { ok: false, status: res.statusCode });
       }
     } catch (fetchErr) {
       fetchProblem = "could not fetch the page";
+      step("fetch", { ok: false, error: String(fetchErr) });
     }
 
     const meta = (name) => {
@@ -124,25 +132,54 @@ routerAdd(
     let siteName = meta("og:site_name");
     let description = meta("og:description").substring(0, 1000);
 
+    step("parse", {
+      title: !!title,
+      image: !!image,
+      price: !!price,
+      currency: currency || "",
+    });
+
     // AI fallback (optional, needs OPENAI_API_KEY): fill in what classic
     // OG/JSON-LD parsing could not - or handle pages that blocked us.
     const cfg = ai.aiConfig();
     if (cfg && (!title || !image || !price)) {
+      const mode = html ? "html" : "web_search";
       const extra = html
         ? ai.extractFromHtml(cfg, url, html)
         : ai.extractViaWebSearch(cfg, url);
       if (extra) {
+        const filled = [];
+        if (!title && extra.title) filled.push("title");
+        if (!image && extra.image) filled.push("image");
+        if (!price && extra.price) filled.push("price");
         title = title || extra.title;
         image = image || extra.image;
         price = price || extra.price;
         currency = currency || extra.currency;
         siteName = siteName || extra.siteName;
         description = description || extra.description;
+        step("ai", { mode: mode, model: cfg.model, ok: true, filled: filled });
+      } else {
+        step("ai", { mode: mode, model: cfg.model, ok: false });
       }
+    } else if (!cfg && (!title || !image || !price)) {
+      step("ai", { skipped: "no OPENAI_API_KEY set" });
     }
 
+    step("result", { title: !!title, image: image || "", price: price || "" });
+
+    // One structured line in the PocketBase admin log per lookup.
+    $app.logger().info(
+      "og-preview",
+      "url", url,
+      "gotTitle", !!title,
+      "gotImage", !!image,
+      "gotPrice", !!price,
+      "trace", JSON.stringify(trace)
+    );
+
     if (fetchProblem && !title && !image && !price) {
-      return e.json(502, { error: fetchProblem });
+      return e.json(502, { error: fetchProblem, trace: trace });
     }
 
     return e.json(200, {
@@ -152,6 +189,7 @@ routerAdd(
       currency: currency,
       siteName: siteName,
       description: description,
+      trace: trace,
     });
   },
   $apis.requireAuth()
@@ -182,10 +220,12 @@ routerAdd(
         },
       });
     } catch (fetchErr) {
+      $app.logger().warn("img-proxy failed", "url", url, "error", String(fetchErr));
       return e.json(502, { error: "could not fetch the image" });
     }
 
     if (res.statusCode !== 200) {
+      $app.logger().warn("img-proxy blocked", "url", url, "status", res.statusCode);
       return e.json(502, { error: "image responded with status " + res.statusCode });
     }
 
@@ -199,6 +239,7 @@ routerAdd(
       }
     }
     if (contentType.indexOf("image/") !== 0) {
+      $app.logger().warn("img-proxy not-an-image", "url", url, "contentType", contentType);
       return e.json(415, { error: "url is not an image (" + contentType + ")" });
     }
 

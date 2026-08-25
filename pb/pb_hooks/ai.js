@@ -105,13 +105,17 @@ function extractFromHtml(cfg, url, html) {
         ],
       }),
     });
-    if (res.statusCode !== 200) return null;
+    if (res.statusCode !== 200) {
+      $app.logger().warn("ai extractFromHtml non-200", "status", res.statusCode, "body", toString(res.body).substring(0, 300));
+      return null;
+    }
     const content =
       res.json && res.json.choices && res.json.choices[0] && res.json.choices[0].message
         ? res.json.choices[0].message.content
         : "";
     return sanitize(parseJsonLoose(content));
-  } catch (_) {
+  } catch (err) {
+    $app.logger().warn("ai extractFromHtml error", "error", String(err));
     return null;
   }
 }
@@ -138,7 +142,10 @@ function extractViaWebSearch(cfg, url) {
           ". Use empty strings for anything you cannot determine.",
       }),
     });
-    if (res.statusCode !== 200) return null;
+    if (res.statusCode !== 200) {
+      $app.logger().warn("ai webSearch non-200", "status", res.statusCode, "body", toString(res.body).substring(0, 300));
+      return null;
+    }
     let text = "";
     const output = res.json && res.json.output;
     if (Array.isArray(output)) {
@@ -151,7 +158,8 @@ function extractViaWebSearch(cfg, url) {
       }
     }
     return sanitize(parseJsonLoose(text));
-  } catch (_) {
+  } catch (err) {
+    $app.logger().warn("ai webSearch error", "error", String(err));
     return null;
   }
 }
