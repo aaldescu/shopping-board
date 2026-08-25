@@ -780,6 +780,71 @@ a {
   justify-content: center;
 }
 
+.activity {
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-soft);
+  padding: 4px 12px;
+}
+
+.activity summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 8px 0;
+  user-select: none;
+}
+
+.activity-list {
+  list-style: none;
+  padding: 2px 0 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.activity-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+
+.activity-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+.activity-list li > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.activity-event {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.activity-detail {
+  font-size: 12px;
+  color: var(--text-soft);
+  word-break: break-word;
+}
+
+.activity-time {
+  font-size: 11px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .divider-label {
   display: flex;
   align-items: center;

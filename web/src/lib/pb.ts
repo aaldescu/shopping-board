@@ -16,6 +16,12 @@ export interface BoardRecord {
   updated: string
 }
 
+export interface ActivityEvent {
+  t: string
+  event: string
+  detail?: string
+}
+
 export interface ItemRecord {
   id: string
   board: string
@@ -29,8 +35,38 @@ export interface ItemRecord {
   w: number
   note: string
   bought: boolean
+  activity: ActivityEvent[]
   created: string
   updated: string
+}
+
+/** Append an activity event, keeping the log bounded to the last 50 entries. */
+export function appendActivity(
+  existing: ActivityEvent[] | undefined,
+  event: string,
+  detail?: string,
+): ActivityEvent[] {
+  const next = [...(existing ?? []), { t: new Date().toISOString(), event, detail }]
+  return next.slice(-50)
+}
+
+/** Summarize an og-preview trace into a short activity detail line. */
+export function summarizeTrace(preview: OgPreview, imageOutcome?: string): string {
+  const t = preview.trace ?? []
+  const method =
+    t.some((s) => s.step === 'ai' && (s as { filled?: string[] }).filled?.length)
+      ? 'AI'
+      : t.some((s) => s.step === 'jina' && (s as { ok?: boolean }).ok)
+        ? 'Jina'
+        : 'page'
+  const parts = [
+    `title ${preview.title ? '✓' : '✗'}`,
+    `image ${preview.image ? '✓' : '✗'}`,
+    `price ${preview.price ? '✓' : '✗'}`,
+  ]
+  let line = `via ${method} — ${parts.join(', ')}`
+  if (imageOutcome && imageOutcome !== 'ok') line += ` · image not saved (${imageOutcome})`
+  return line
 }
 
 export interface TraceStep {

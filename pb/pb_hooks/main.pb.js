@@ -139,6 +139,34 @@ routerAdd(
       currency: currency || "",
     });
 
+    // Jina Reader fallback (optional): a JS-rendering fetch that recovers
+    // pages we couldn't read or images injected by client-side JS. Its
+    // rendered content also feeds the AI step below for better extraction.
+    const jina = require(`${__hooks}/jina.js`);
+    const jcfg = jina.jinaConfig();
+    if (jcfg && (fetchProblem || !image || !title)) {
+      const j = jina.fetchViaJina(jcfg, url);
+      if (j.ok) {
+        const filled = [];
+        if (!title && j.title) filled.push("title");
+        if (!image && j.image) filled.push("image");
+        if (!title && j.title) title = j.title;
+        if (!image && j.image) image = j.image;
+        if (!description && j.description) description = j.description.substring(0, 1000);
+        if (j.content) {
+          html = j.content; // give the AI step rendered content to work on
+          fetchProblem = "";
+        }
+        step("jina", {
+          ok: true,
+          filled: filled,
+          contentBytes: (j.content || "").length,
+        });
+      } else {
+        step("jina", { ok: false, status: j.status, error: j.error });
+      }
+    }
+
     // AI fallback (optional, needs OPENAI_API_KEY): fill in what classic
     // OG/JSON-LD parsing could not - or handle pages that blocked us.
     const cfg = ai.aiConfig();

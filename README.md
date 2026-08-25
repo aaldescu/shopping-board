@@ -104,23 +104,33 @@ The repo ships a `Dockerfile` and `docker-compose.yml` ready for Dokploy.
 ## AI-assisted scraping (optional)
 
 Classic Open Graph scraping fails on JavaScript-heavy shops or shops with
-bot protection (Lidl, Amazon, …). Setting an OpenAI API key enables a
-smart fallback in `/api/og-preview`:
+bot protection (Lidl, Amazon, …). `/api/og-preview` runs a series of
+fallbacks, each only when the previous one left fields missing:
 
-1. Plain OG/JSON-LD extraction runs first — if it finds title, image and
-   price, **no AI call is made** (fast and free).
-2. If the page was fetched but fields are missing, a condensed version of
-   the HTML is sent to the model for structured extraction.
-3. If the shop blocked the server entirely, the model is asked to look up
-   the product page itself using OpenAI's **web search** tool.
+1. Plain OG/JSON-LD extraction — if it finds title, image and price,
+   **nothing else runs** (fast and free).
+2. **Jina Reader** (if configured) — a JS-rendering fetch that recovers
+   pages we couldn't read, or images injected by client-side JS (the common
+   "got the price but no image" case). Its rendered content also feeds
+   step 3.
+3. **OpenAI HTML extraction** (if configured) — a condensed version of the
+   page (from step 1 or 2) is sent to a mini model for structured JSON.
+4. **OpenAI web search** (if configured) — if the shop blocked us entirely,
+   the model looks the product page up itself.
+
+Every lookup returns a **trace** (visible in the browser console and in the
+per-card Activity view) and writes a line to the PocketBase admin log, so
+you can see which step produced — or failed to produce — each field.
 
 Configure via environment variables (Dokploy → service → *Environment*):
 
-| Variable          | Default                     | Purpose                       |
-| ----------------- | --------------------------- | ----------------------------- |
-| `OPENAI_API_KEY`  | *(unset — AI disabled)*     | enables the fallback          |
-| `OPENAI_MODEL`    | `gpt-5-mini`                | any model with JSON output    |
-| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | any OpenAI-compatible API     |
+| Variable          | Default                     | Purpose                          |
+| ----------------- | --------------------------- | -------------------------------- |
+| `OPENAI_API_KEY`  | *(unset — AI disabled)*     | enables the AI fallback          |
+| `OPENAI_MODEL`    | `gpt-5-mini`                | any model with JSON output       |
+| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | any OpenAI-compatible API        |
+| `JINA_API_KEY`    | *(unset)*                   | enables Jina Reader (auth'd)     |
+| `JINA_ENABLED`    | *(unset)*                   | `true` for keyless Jina Reader   |
 
 Costs are minimal: calls happen only when classic extraction comes up
 short, inputs are condensed, and a mini-tier model is the default. Any

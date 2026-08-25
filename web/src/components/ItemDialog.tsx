@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
+  appendActivity,
   downloadImage,
   fetchOgPreview,
   formatPrice,
@@ -7,6 +8,19 @@ import {
   pb,
   type ItemRecord,
 } from '../lib/pb'
+
+function relativeTime(iso: string): string {
+  const then = new Date(iso).getTime()
+  if (!then) return ''
+  const s = Math.round((Date.now() - then) / 1000)
+  if (s < 60) return 'just now'
+  const m = Math.round(s / 60)
+  if (m < 60) return `${m}m ago`
+  const h = Math.round(m / 60)
+  if (h < 24) return `${h}h ago`
+  const d = Math.round(h / 24)
+  return d < 30 ? `${d}d ago` : new Date(iso).toLocaleDateString()
+}
 
 export interface DialogState {
   mode: 'add' | 'edit'
@@ -127,7 +141,14 @@ export default function ItemDialog({ state, boardId, onClose, onSaved, onQuickAd
       fd.set('image_url', imageFile ? '' : remoteImageUrl)
       if (imageFile) fd.set('image', imageFile)
       else if (clearImage) fd.set('image', '')
-      if (state.mode === 'edit') fd.set('bought', bought ? 'true' : 'false')
+      if (state.mode === 'edit') {
+        fd.set('bought', bought ? 'true' : 'false')
+        let log = appendActivity(editing!.activity, 'Edited')
+        if (bought !== (editing!.bought ?? false)) {
+          log = appendActivity(log, bought ? 'Marked bought' : 'Marked not bought')
+        }
+        fd.set('activity', JSON.stringify(log))
+      }
 
       let saved: ItemRecord
       if (state.mode === 'add') {
@@ -329,6 +350,29 @@ export default function ItemDialog({ state, boardId, onClose, onSaved, onQuickAd
             I bought it ✓
           </label>
         )}
+
+        {state.mode === 'edit' && editing?.activity?.length ? (
+          <details className="activity">
+            <summary>Activity ({editing.activity.length})</summary>
+            <ul className="activity-list">
+              {editing.activity
+                .slice()
+                .reverse()
+                .map((a, i) => (
+                  <li key={i}>
+                    <span className="activity-dot" />
+                    <div>
+                      <div className="activity-event">{a.event}</div>
+                      {a.detail && <div className="activity-detail">{a.detail}</div>}
+                    </div>
+                    <time className="activity-time" title={new Date(a.t).toLocaleString()}>
+                      {relativeTime(a.t)}
+                    </time>
+                  </li>
+                ))}
+            </ul>
+          </details>
+        ) : null}
 
         {error && <p className="error-text">{error}</p>}
 

@@ -20,6 +20,10 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_MODEL=${OPENAI_MODEL:-gpt-5-mini}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      # Optional Jina Reader fallback (JS-rendering fetch). Set JINA_API_KEY
+      # for the authenticated endpoint, or JINA_ENABLED=true for keyless.
+      - JINA_API_KEY=${JINA_API_KEY:-}
+      - JINA_ENABLED=${JINA_ENABLED:-}
     volumes:
       # Persistent PocketBase data (SQLite DB + uploaded images).
       # Dokploy keeps "../files" bind mounts on a persistent host path, so
