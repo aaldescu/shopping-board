@@ -6,8 +6,6 @@ import {
   fetchOgPreview,
   downloadImage,
   formatPrice,
-  appendActivity,
-  summarizeTrace,
   type BoardRecord,
   type ItemRecord,
 } from '../lib/pb'
@@ -194,7 +192,6 @@ export default function BoardPage() {
         x: Math.round(pos.x),
         y: Math.round(pos.y),
         w: 260,
-        activity: appendActivity(undefined, 'Added from link', url),
       })
     } catch {
       return
@@ -219,7 +216,6 @@ export default function BoardPage() {
       const fd = new FormData()
       fd.set('title', (preview.title || fallbackTitle).substring(0, 500))
       if (preview.price) fd.set('price', formatPrice(preview.price, preview.currency))
-      let imageOutcome = preview.image ? 'ok' : 'no image on page'
       if (preview.image) {
         const dl = await downloadImage(preview.image)
         if (dl.file) {
@@ -227,7 +223,6 @@ export default function BoardPage() {
         } else {
           // Store the remote URL and hotlink it instead of a durable copy.
           fd.set('image_url', preview.image)
-          imageOutcome = dl.reason
           // eslint-disable-next-line no-console
           console.warn(`image download failed (${dl.reason}); hotlinking ${preview.image}`)
         }
@@ -237,18 +232,11 @@ export default function BoardPage() {
       }
       // eslint-disable-next-line no-console
       console.groupEnd()
-      fd.set(
-        'activity',
-        JSON.stringify(appendActivity(rec.activity, 'Fetched details', summarizeTrace(preview, imageOutcome))),
-      )
       mergeUpdated(await pb.collection('items').update<ItemRecord>(rec.id, fd))
     } catch {
       try {
         mergeUpdated(
-          await pb.collection('items').update<ItemRecord>(rec.id, {
-            title: fallbackTitle,
-            activity: appendActivity(rec.activity, 'Fetch failed', 'kept the link'),
-          }),
+          await pb.collection('items').update<ItemRecord>(rec.id, { title: fallbackTitle }),
         )
       } catch {
         // card stays as a bare link; user can edit it manually
@@ -257,6 +245,46 @@ export default function BoardPage() {
       setPendingIds((prev) => {
         const next = new Set(prev)
         next.delete(rec.id)
+        return next
+      })
+    }
+  }
+
+  /** Re-fetch an existing card's URL to refresh its price (and image). */
+  async function refetchItem(item: ItemRecord) {
+    if (!item.url || pendingIds.has(item.id)) return
+    setPendingIds((prev) => new Set(prev).add(item.id))
+    try {
+      const preview = await fetchOgPreview(item.url)
+      const fd = new FormData()
+      let changed = false
+      if (preview.price) {
+        const p = formatPrice(preview.price, preview.currency)
+        if (p && p !== item.price) {
+          fd.set('price', p)
+          changed = true
+        }
+      }
+      if (preview.title && !item.title) {
+        fd.set('title', preview.title.substring(0, 500))
+        changed = true
+      }
+      // Only replace the image if the card doesn't already have one.
+      if (preview.image && !item.image && !item.image_url) {
+        const dl = await downloadImage(preview.image)
+        if (dl.file) fd.set('image', dl.file)
+        else fd.set('image_url', preview.image)
+        changed = true
+      }
+      if (changed) {
+        mergeUpdated(await pb.collection('items').update<ItemRecord>(item.id, fd))
+      }
+    } catch {
+      // ignore; nothing to update
+    } finally {
+      setPendingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(item.id)
         return next
       })
     }
@@ -452,7 +480,6 @@ export default function BoardPage() {
     fd.set('y', String(Math.round(pos.y)))
     fd.set('w', '260')
     fd.set('image', file)
-    fd.set('activity', JSON.stringify(appendActivity(undefined, 'Added image', file.name)))
     try {
       const rec = await pb.collection('items').create<ItemRecord>(fd)
       setItems((prev) => (prev.some((i) => i.id === rec.id) ? prev : [...prev, rec]))
@@ -621,6 +648,16 @@ export default function BoardPage() {
               >
                 🔗
               </a>
+            )}
+            {selected.url && (
+              <button
+                className="btn btn-icon btn-ghost"
+                title="Refetch price & details"
+                disabled={pendingIds.has(selected.id)}
+                onClick={() => void refetchItem(selected)}
+              >
+                🔄
+              </button>
             )}
             <button
               className="btn btn-icon btn-ghost"

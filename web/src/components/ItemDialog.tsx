@@ -1,13 +1,46 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  appendActivity,
   downloadImage,
+  fetchItemEvents,
   fetchOgPreview,
   formatPrice,
   itemImageUrl,
   pb,
+  type ItemEvent,
   type ItemRecord,
 } from '../lib/pb'
+
+/** Turn one audit-trail row into an icon + human-readable line. */
+function describeEvent(ev: ItemEvent): { icon: string; text: string } {
+  const dash = (s: string) => (s && s.trim() ? s : '—')
+  switch (ev.event) {
+    case 'created':
+      return { icon: '🆕', text: 'Added' + (ev.detail ? ` (${ev.detail})` : '') }
+    case 'bought':
+      return { icon: '✅', text: 'Marked as bought' }
+    case 'unbought':
+      return { icon: '↩️', text: 'Marked as not bought' }
+    case 'image_changed':
+      return { icon: '🖼️', text: 'Image updated' }
+    case 'image_removed':
+      return { icon: '🗑️', text: 'Image removed' }
+    case 'changed':
+      switch (ev.field) {
+        case 'price':
+          return { icon: '💶', text: `Price: ${dash(ev.from)} → ${dash(ev.to)}` }
+        case 'title':
+          return { icon: '✏️', text: `Title: ${dash(ev.from)} → ${dash(ev.to)}` }
+        case 'url':
+          return { icon: '🔗', text: 'Link changed' }
+        case 'note':
+          return { icon: '📝', text: ev.to ? `Note: ${ev.to}` : 'Note cleared' }
+        default:
+          return { icon: '•', text: `${ev.field} changed` }
+      }
+    default:
+      return { icon: '•', text: ev.detail || ev.event }
+  }
+}
 
 function relativeTime(iso: string): string {
   const then = new Date(iso).getTime()
@@ -58,6 +91,7 @@ export default function ItemDialog({ state, boardId, onClose, onSaved, onQuickAd
   const [fetching, setFetching] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [events, setEvents] = useState<ItemEvent[] | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const autoFetchedRef = useRef(false)
 
@@ -68,6 +102,22 @@ export default function ItemDialog({ state, boardId, onClose, onSaved, onQuickAd
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Load the audit trail when editing.
+  useEffect(() => {
+    if (state.mode !== 'edit' || !editing) return
+    let cancelled = false
+    fetchItemEvents(editing.id)
+      .then((list) => {
+        if (!cancelled) setEvents(list)
+      })
+      .catch(() => {
+        if (!cancelled) setEvents([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [state.mode, editing])
 
   async function fetchDetails(target?: string) {
     const u = (target ?? url).trim()
@@ -141,14 +191,7 @@ export default function ItemDialog({ state, boardId, onClose, onSaved, onQuickAd
       fd.set('image_url', imageFile ? '' : remoteImageUrl)
       if (imageFile) fd.set('image', imageFile)
       else if (clearImage) fd.set('image', '')
-      if (state.mode === 'edit') {
-        fd.set('bought', bought ? 'true' : 'false')
-        let log = appendActivity(editing!.activity, 'Edited')
-        if (bought !== (editing!.bought ?? false)) {
-          log = appendActivity(log, bought ? 'Marked bought' : 'Marked not bought')
-        }
-        fd.set('activity', JSON.stringify(log))
-      }
+      if (state.mode === 'edit') fd.set('bought', bought ? 'true' : 'false')
 
       let saved: ItemRecord
       if (state.mode === 'add') {
@@ -351,28 +394,40 @@ export default function ItemDialog({ state, boardId, onClose, onSaved, onQuickAd
           </label>
         )}
 
-        {state.mode === 'edit' && editing?.activity?.length ? (
-          <details className="activity">
-            <summary>Activity ({editing.activity.length})</summary>
-            <ul className="activity-list">
-              {editing.activity
-                .slice()
-                .reverse()
-                .map((a, i) => (
-                  <li key={i}>
-                    <span className="activity-dot" />
-                    <div>
-                      <div className="activity-event">{a.event}</div>
-                      {a.detail && <div className="activity-detail">{a.detail}</div>}
-                    </div>
-                    <time className="activity-time" title={new Date(a.t).toLocaleString()}>
-                      {relativeTime(a.t)}
-                    </time>
-                  </li>
-                ))}
-            </ul>
+        {state.mode === 'edit' && (
+          <details className="activity" open>
+            <summary>Activity{events ? ` (${events.length})` : ''}</summary>
+            {events === null ? (
+              <p className="muted" style={{ padding: '6px 0 10px' }}>
+                Loading…
+              </p>
+            ) : events.length === 0 ? (
+              <p className="muted" style={{ padding: '6px 0 10px' }}>
+                No history yet.
+              </p>
+            ) : (
+              <ul className="activity-list">
+                {events.map((ev) => {
+                  const d = describeEvent(ev)
+                  return (
+                    <li key={ev.id}>
+                      <span className="activity-icon">{d.icon}</span>
+                      <div>
+                        <div className="activity-event">{d.text}</div>
+                      </div>
+                      <time
+                        className="activity-time"
+                        title={new Date(ev.created).toLocaleString()}
+                      >
+                        {relativeTime(ev.created)}
+                      </time>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
           </details>
-        ) : null}
+        )}
 
         {error && <p className="error-text">{error}</p>}
 

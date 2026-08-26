@@ -40,33 +40,26 @@ export interface ItemRecord {
   updated: string
 }
 
-/** Append an activity event, keeping the log bounded to the last 50 entries. */
-export function appendActivity(
-  existing: ActivityEvent[] | undefined,
-  event: string,
-  detail?: string,
-): ActivityEvent[] {
-  const next = [...(existing ?? []), { t: new Date().toISOString(), event, detail }]
-  return next.slice(-50)
+export interface ItemEvent {
+  id: string
+  item: string
+  board: string
+  event: string
+  field: string
+  from: string
+  to: string
+  detail: string
+  source: string
+  created: string
 }
 
-/** Summarize an og-preview trace into a short activity detail line. */
-export function summarizeTrace(preview: OgPreview, imageOutcome?: string): string {
-  const t = preview.trace ?? []
-  const method =
-    t.some((s) => s.step === 'ai' && (s as { filled?: string[] }).filled?.length)
-      ? 'AI'
-      : t.some((s) => s.step === 'jina' && (s as { ok?: boolean }).ok)
-        ? 'Jina'
-        : 'page'
-  const parts = [
-    `title ${preview.title ? '✓' : '✗'}`,
-    `image ${preview.image ? '✓' : '✗'}`,
-    `price ${preview.price ? '✓' : '✗'}`,
-  ]
-  let line = `via ${method} — ${parts.join(', ')}`
-  if (imageOutcome && imageOutcome !== 'ok') line += ` · image not saved (${imageOutcome})`
-  return line
+/** Load the audit trail for one item, newest first. */
+export async function fetchItemEvents(itemId: string): Promise<ItemEvent[]> {
+  const res = await pb.collection('item_events').getList<ItemEvent>(1, 100, {
+    filter: pb.filter('item = {:id}', { id: itemId }),
+    sort: '-created',
+  })
+  return res.items
 }
 
 export interface TraceStep {

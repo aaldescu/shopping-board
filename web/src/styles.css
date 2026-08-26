@@ -813,13 +813,17 @@ a {
   gap: 9px;
 }
 
-.activity-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--accent);
-  margin-top: 5px;
+.activity-icon {
+  font-size: 13px;
+  line-height: 1.4;
+  width: 18px;
+  text-align: center;
   flex-shrink: 0;
+}
+
+.activity {
+  max-height: 220px;
+  overflow-y: auto;
 }
 
 .activity-list li > div {

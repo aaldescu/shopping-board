@@ -21,6 +21,12 @@ the built frontend — one process, one port, one volume.
   drop image files onto the board
 - **Share from your phone** — installed as a PWA (Android/Chrome), the app
   appears in the native share sheet: share a shop URL, pick a board, done
+- **Audit trail** — every card keeps a server-recorded history (added, price
+  changes with from→to, bought/not-bought, title/note/image edits), shown in
+  the card's Activity section. Recorded by server hooks, so it's complete and
+  can't be forged by the client; dragging a card is not logged.
+- **Refetch** — a 🔄 button on a card re-reads its URL to refresh the price;
+  any change lands in the audit trail.
 - **Boards** — create, rename, delete; each user only sees their own
 - **User accounts** — email + password login backed by PocketBase
 - **Live sync** — boards update in realtime across devices via PocketBase
