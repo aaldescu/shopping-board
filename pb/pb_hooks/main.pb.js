@@ -223,6 +223,70 @@ routerAdd(
   $apis.requireAuth()
 );
 
+// GET /api/og-images?url=...  -> { images: [url, url, ...] }
+//    Returns candidate product images from a page so the user can pick a
+//    better picture than the default og:image.
+routerAdd(
+  "GET",
+  "/api/og-images",
+  (e) => {
+    const utils = require(`${__hooks}/utils.js`);
+    const images = require(`${__hooks}/images.js`);
+    const jina = require(`${__hooks}/jina.js`);
+    const url = (e.request.url.query().get("url") || "").trim();
+    const err = utils.sbValidateUrl(url);
+    if (err) {
+      return e.json(400, { error: err });
+    }
+
+    let html = "";
+    try {
+      const res = $http.send({
+        url: url,
+        method: "GET",
+        timeout: 20,
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9",
+        },
+      });
+      if (res.statusCode >= 200 && res.statusCode < 400) {
+        html = toString(res.body).substring(0, 1500000);
+      }
+    } catch (fetchErr) {
+      // fall through to Jina below
+    }
+
+    let list = images.collectImages(html, url);
+
+    // If direct fetch was blocked or thin, add JS-rendered images via Jina.
+    const jcfg = jina.jinaConfig();
+    if (jcfg && list.length < 4) {
+      const j = jina.fetchViaJina(jcfg, url);
+      if (j.ok) {
+        const merged = {};
+        const combined = [];
+        const add = (u) => {
+          if (u && !merged[u]) {
+            merged[u] = true;
+            combined.push(u);
+          }
+        };
+        list.forEach(add);
+        (j.images || []).forEach(add);
+        images.collectImages(j.content || "", url).forEach(add);
+        list = combined;
+      }
+    }
+
+    $app.logger().info("og-images", "url", url, "count", list.length);
+    return e.json(200, { images: list.slice(0, 30) });
+  },
+  $apis.requireAuth()
+);
+
 routerAdd(
   "GET",
   "/api/img",

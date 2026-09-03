@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   downloadImage,
   fetchItemEvents,
+  fetchOgImages,
   fetchOgPreview,
   formatPrice,
   itemImageUrl,
@@ -92,6 +93,11 @@ export default function ItemDialog({ state, boardId, onClose, onSaved, onQuickAd
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [events, setEvents] = useState<ItemEvent[] | null>(null)
+  const [galleryOpen, setGalleryOpen] = useState(false)
+  const [galleryLoading, setGalleryLoading] = useState(false)
+  const [galleryImages, setGalleryImages] = useState<string[]>([])
+  const [galleryError, setGalleryError] = useState('')
+  const [brokenThumbs, setBrokenThumbs] = useState<Record<string, boolean>>({})
   const fileInputRef = useRef<HTMLInputElement>(null)
   const autoFetchedRef = useRef(false)
 
@@ -140,19 +146,7 @@ export default function ItemDialog({ state, boardId, onClose, onSaved, onQuickAd
         console.groupEnd()
       }
       if (preview.image) {
-        setRemoteImageUrl(preview.image)
-        setClearImage(false)
-        const dl = await downloadImage(preview.image)
-        if (dl.file) {
-          setImageFile(dl.file)
-          setImagePreview(URL.createObjectURL(dl.file))
-        } else {
-          // Could not proxy the image — fall back to hotlinking it.
-          setImageFile(null)
-          setImagePreview(preview.image)
-          // eslint-disable-next-line no-console
-          console.warn(`image download failed (${dl.reason}); hotlinking ${preview.image}`)
-        }
+        await applyRemoteImage(preview.image)
       }
       if (!preview.title && !preview.image && !preview.price) {
         setError('No product details found on that page — fill them in manually.')
@@ -162,6 +156,48 @@ export default function ItemDialog({ state, boardId, onClose, onSaved, onQuickAd
     } finally {
       setFetching(false)
     }
+  }
+
+  // Store a durable copy of a remote image (via the proxy), or hotlink it.
+  async function applyRemoteImage(imgUrl: string) {
+    setRemoteImageUrl(imgUrl)
+    setClearImage(false)
+    const dl = await downloadImage(imgUrl)
+    if (dl.file) {
+      setImageFile(dl.file)
+      setImagePreview(URL.createObjectURL(dl.file))
+    } else {
+      setImageFile(null)
+      setImagePreview(imgUrl)
+      // eslint-disable-next-line no-console
+      console.warn(`image download failed (${dl.reason}); hotlinking ${imgUrl}`)
+    }
+  }
+
+  async function openGallery() {
+    const u = url.trim()
+    if (!/^https?:\/\//i.test(u)) {
+      setError('Add the product URL first, then pick an image from the page.')
+      return
+    }
+    setGalleryOpen(true)
+    setGalleryError('')
+    setGalleryImages([])
+    setGalleryLoading(true)
+    try {
+      const imgs = await fetchOgImages(u)
+      setGalleryImages(imgs)
+      if (imgs.length === 0) setGalleryError('No images found on that page.')
+    } catch {
+      setGalleryError('Could not load images from that page.')
+    } finally {
+      setGalleryLoading(false)
+    }
+  }
+
+  async function chooseGalleryImage(imgUrl: string) {
+    setGalleryOpen(false)
+    await applyRemoteImage(imgUrl)
   }
 
   function onPickFile(file: File | null) {
@@ -329,20 +365,35 @@ export default function ItemDialog({ state, boardId, onClose, onSaved, onQuickAd
         {imagePreview ? (
           <div className="preview-img-wrap">
             <img className="preview-img" src={imagePreview} alt="" referrerPolicy="no-referrer" />
-            <button className="preview-img-remove" title="Remove image" onClick={removeImage}>
-              ✕
-            </button>
+            <div className="preview-img-actions">
+              <button
+                className="preview-img-btn"
+                title="Choose another image from the page"
+                onClick={() => void openGallery()}
+              >
+                🖼️
+              </button>
+              <button className="preview-img-btn" title="Remove image" onClick={removeImage}>
+                ✕
+              </button>
+            </div>
           </div>
         ) : (
           <div className="field">
             <label>Picture</label>
-            <button
-              className="btn"
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              📷 Upload a picture
-            </button>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button className="btn" type="button" onClick={() => fileInputRef.current?.click()}>
+                📷 Upload a picture
+              </button>
+              <button
+                className="btn"
+                type="button"
+                disabled={!url.trim()}
+                onClick={() => void openGallery()}
+              >
+                🖼️ Images from page
+              </button>
+            </div>
             <input
               ref={fileInputRef}
               type="file"
@@ -350,6 +401,48 @@ export default function ItemDialog({ state, boardId, onClose, onSaved, onQuickAd
               hidden
               onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
             />
+          </div>
+        )}
+
+        {galleryOpen && (
+          <div className="gallery">
+            <div className="gallery-head">
+              <span>Pick an image from the page</span>
+              <button className="btn btn-icon btn-ghost" title="Close" onClick={() => setGalleryOpen(false)}>
+                ✕
+              </button>
+            </div>
+            {galleryLoading ? (
+              <div className="gallery-status">
+                <span className="spinner" /> Loading images…
+              </div>
+            ) : galleryError ? (
+              <div className="gallery-status">{galleryError}</div>
+            ) : (
+              <div className="gallery-grid">
+                {galleryImages
+                  .filter((src) => !brokenThumbs[src])
+                  .map((src) => (
+                    <button
+                      key={src}
+                      type="button"
+                      className={
+                        'gallery-thumb' + (src === remoteImageUrl ? ' selected' : '')
+                      }
+                      title={src}
+                      onClick={() => void chooseGalleryImage(src)}
+                    >
+                      <img
+                        src={src}
+                        alt=""
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                        onError={() => setBrokenThumbs((b) => ({ ...b, [src]: true }))}
+                      />
+                    </button>
+                  ))}
+              </div>
+            )}
           </div>
         )}
 

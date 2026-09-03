@@ -46,17 +46,14 @@ function fetchViaJina(cfg, url) {
     const data = res.json && res.json.data ? res.json.data : null;
     if (!data) return { ok: false, status: res.statusCode };
 
-    // data.images is a map of { altText: absoluteUrl }. Pick the first
-    // https image as a reasonable product-image guess; the AI step can
-    // still override using the full content if it finds a better one.
-    let image = "";
+    // data.images is a map of { altText: absoluteUrl }. Collect every https
+    // image; the first is a reasonable product-image guess and the full list
+    // feeds the image picker (/api/og-images).
+    const allImages = [];
     if (data.images && typeof data.images === "object") {
       for (const k in data.images) {
         const v = data.images[k];
-        if (typeof v === "string" && /^https?:\/\//i.test(v)) {
-          image = v;
-          break;
-        }
+        if (typeof v === "string" && /^https?:\/\//i.test(v)) allImages.push(v);
       }
     }
 
@@ -64,7 +61,8 @@ function fetchViaJina(cfg, url) {
       ok: true,
       title: typeof data.title === "string" ? data.title : "",
       description: typeof data.description === "string" ? data.description : "",
-      image: image,
+      image: allImages[0] || "",
+      images: allImages,
       content: typeof data.content === "string" ? data.content : "",
     };
   } catch (err) {

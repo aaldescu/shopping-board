@@ -27,6 +27,9 @@ the built frontend — one process, one port, one volume.
   can't be forged by the client; dragging a card is not logged.
 - **Refetch** — a 🔄 button on a card re-reads its URL to refresh the price;
   any change lands in the audit trail.
+- **Pick a better image** — in the edit dialog, the 🖼️ button pulls all the
+  images found on the product page (og:image, gallery images, JSON-LD, Jina
+  when configured) into a grid so you can choose the one you like.
 - **Boards** — create, rename, delete; each user only sees their own
 - **User accounts** — email + password login backed by PocketBase
 - **Live sync** — boards update in realtime across devices via PocketBase

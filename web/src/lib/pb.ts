@@ -87,6 +87,12 @@ export async function fetchOgPreview(url: string): Promise<OgPreview> {
   return await pb.send('/api/og-preview', { query: { url } })
 }
 
+/** Fetch candidate product images from a page so the user can pick one. */
+export async function fetchOgImages(url: string): Promise<string[]> {
+  const res = await pb.send('/api/og-images', { query: { url } })
+  return Array.isArray(res?.images) ? (res.images as string[]) : []
+}
+
 export interface ImageDownload {
   file: File | null
   reason: string
