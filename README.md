@@ -27,6 +27,9 @@ the built frontend — one process, one port, one volume.
   can't be forged by the client; dragging a card is not logged.
 - **Refetch** — a 🔄 button on a card re-reads its URL to refresh the price;
   any change lands in the audit trail.
+- **Backups** — scheduled PocketBase backups (database + uploaded images),
+  optionally pushed off-site to S3-compatible storage, configured by
+  environment variable so a rebuilt server protects itself from first boot
 - **Pick a better image** — in the edit dialog, the 🖼️ button pulls all the
   images found on the product page (og:image, gallery images, JSON-LD, Jina
   when configured) into a grid so you can choose the one you like.
@@ -145,6 +148,77 @@ Costs are minimal: calls happen only when classic extraction comes up
 short, inputs are condensed, and a mini-tier model is the default. Any
 OpenAI-compatible endpoint works for the HTML-extraction path (step 2);
 the web-search path (step 3) requires the OpenAI Responses API.
+
+## Backups
+
+The whole app's state is the `/pb/pb_data` volume: the SQLite database **and**
+every uploaded product image. Back it up off-site — a backup that only lives
+on the same server disappears with the server.
+
+### Scheduled backups (recommended)
+
+Set these in Dokploy → service → *Environment*, then redeploy:
+
+```
+BACKUP_CRON=0 3 * * *        # nightly at 03:00
+BACKUP_MAX_KEEP=7            # keep the last 7 on disk
+```
+
+That alone gives you nightly snapshots, but they sit on the same disk. To push
+them off the server, add any S3-compatible storage (Cloudflare R2 and
+Backblaze B2 both have free tiers that comfortably fit this app):
+
+```
+BACKUP_S3_ENABLED=true
+BACKUP_S3_BUCKET=shopping-board-backups
+BACKUP_S3_REGION=auto                                  # "auto" for R2
+BACKUP_S3_ENDPOINT=<account-id>.r2.cloudflarestorage.com
+BACKUP_S3_ACCESS_KEY=...
+BACKUP_S3_SECRET=...
+```
+
+These are applied on every boot by `pb/pb_hooks/backup.pb.js`. That matters:
+backup settings normally live inside the database, so a destroyed volume would
+come back with backups silently switched off. Driving them from environment
+variables means a rebuilt server starts protecting itself again immediately.
+
+You can also trigger and download backups by hand in the admin dashboard at
+`https://your-domain/_/` → *Settings* → *Backups*.
+
+### A second copy on your own machine
+
+`scripts/pb-backup.sh` creates a fresh backup and downloads it locally:
+
+```sh
+PB_URL=https://board.example.com \
+PB_EMAIL=you@example.com \
+PB_PASSWORD='superuser-password' \
+./scripts/pb-backup.sh ~/shopping-board-backups
+```
+
+It keeps the newest 14 local copies (`KEEP=n` to change). Run it from a laptop
+cron job or another machine for a copy that is independent of both the server
+and the S3 account.
+
+### Restoring
+
+A backup is a plain zip of `pb_data` (`data.db`, `auxiliary.db`, `storage/`).
+
+- **Server still alive:** admin dashboard → *Settings* → *Backups* → upload the
+  zip if needed, then use its restore action. PocketBase swaps the data in and
+  restarts itself.
+- **Server gone (rebuilt from scratch):** deploy the app so the empty
+  `pb_data` volume exists, stop the service, unzip the backup into that volume
+  so `data.db` sits at `/pb/pb_data/data.db`, then start it again:
+
+  ```sh
+  # on the Dokploy host, with the service stopped
+  cd /etc/dokploy/compose/<project>/files/pb_data
+  unzip -o ~/pb_backup_*.zip
+  ```
+
+  Accounts, boards, items, the audit trail and all uploaded images come back
+  exactly as they were, including the admin login.
 
 ## Notes
 

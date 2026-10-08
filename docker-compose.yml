@@ -24,6 +24,17 @@ services:
       # for the authenticated endpoint, or JINA_ENABLED=true for keyless.
       - JINA_API_KEY=${JINA_API_KEY:-}
       - JINA_ENABLED=${JINA_ENABLED:-}
+      # Automatic backups (see README). BACKUP_CRON enables scheduled
+      # backups; the S3_* vars push them off-site so they survive the server.
+      - BACKUP_CRON=${BACKUP_CRON:-}
+      - BACKUP_MAX_KEEP=${BACKUP_MAX_KEEP:-7}
+      - BACKUP_S3_ENABLED=${BACKUP_S3_ENABLED:-}
+      - BACKUP_S3_BUCKET=${BACKUP_S3_BUCKET:-}
+      - BACKUP_S3_REGION=${BACKUP_S3_REGION:-auto}
+      - BACKUP_S3_ENDPOINT=${BACKUP_S3_ENDPOINT:-}
+      - BACKUP_S3_ACCESS_KEY=${BACKUP_S3_ACCESS_KEY:-}
+      - BACKUP_S3_SECRET=${BACKUP_S3_SECRET:-}
+      - BACKUP_S3_PATH_STYLE=${BACKUP_S3_PATH_STYLE:-}
     volumes:
       # Persistent PocketBase data (SQLite DB + uploaded images).
       # Dokploy keeps "../files" bind mounts on a persistent host path, so
