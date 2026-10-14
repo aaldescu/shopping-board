@@ -32,6 +32,31 @@ type Gesture =
 
 const clampZoom = (s: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, s))
 
+// The view (zoom + pan) is remembered per board in this browser, so a board
+// reopens where you left it. Per device on purpose: a zoom that suits a
+// laptop screen rarely suits a phone.
+const viewKey = (boardId: string) => `sb:view:${boardId}`
+
+function loadView(boardId: string): View {
+  try {
+    const v = JSON.parse(localStorage.getItem(viewKey(boardId)) || 'null')
+    if (v && [v.x, v.y, v.s].every((n) => typeof n === 'number' && Number.isFinite(n))) {
+      return { x: v.x, y: v.y, s: clampZoom(v.s) }
+    }
+  } catch {
+    // private mode / blocked storage / bad JSON: fall back to the default
+  }
+  return { x: 0, y: 0, s: 1 }
+}
+
+function saveView(boardId: string, v: View) {
+  try {
+    localStorage.setItem(viewKey(boardId), JSON.stringify({ x: Math.round(v.x), y: Math.round(v.y), s: v.s }))
+  } catch {
+    // storage unavailable: the view just won't be remembered
+  }
+}
+
 export default function BoardPage() {
   const { boardId = '' } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -39,7 +64,7 @@ export default function BoardPage() {
 
   const [board, setBoard] = useState<BoardRecord | null>(null)
   const [items, setItems] = useState<ItemRecord[]>([])
-  const [view, setView] = useState<View>({ x: 0, y: 0, s: 1 })
+  const [view, setView] = useState<View>(() => loadView(boardId))
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [dialog, setDialog] = useState<DialogState | null>(null)
   const [notFound, setNotFound] = useState(false)
@@ -56,6 +81,23 @@ export default function BoardPage() {
   const gestureRef = useRef<Gesture>(null)
   // Re-render when the active gesture targets an item, to toggle its style.
   const [draggingId, setDraggingId] = useState<string | null>(null)
+
+  /* ---------- remembered view ---------- */
+
+  // Switching boards without leaving the page: show the new board's view.
+  const viewBoardRef = useRef(boardId)
+  useEffect(() => {
+    if (viewBoardRef.current === boardId) return
+    viewBoardRef.current = boardId
+    setView(loadView(boardId))
+  }, [boardId])
+
+  // Save once the view settles, not on every frame of a pan or pinch.
+  useEffect(() => {
+    if (viewBoardRef.current !== boardId) return
+    const t = window.setTimeout(() => saveView(boardId, view), 300)
+    return () => window.clearTimeout(t)
+  }, [boardId, view])
 
   /* ---------- data loading ---------- */
 
