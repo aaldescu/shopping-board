@@ -708,9 +708,13 @@ export default function BoardPage() {
           className="fab"
           data-ui
           title="Add product"
+          aria-label="Add product"
           onClick={() => setDialog({ mode: 'add', spawn: viewCenterWorld() })}
         >
-          +
+          {/* Drawn rather than a "+" glyph, which sits off-centre in most fonts. */}
+          <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">
+            <path d="M11 3v16M3 11h16" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+          </svg>
         </button>
 
         {hint && (
