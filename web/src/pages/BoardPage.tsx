@@ -11,6 +11,7 @@ import {
 } from '../lib/pb'
 import ItemCard from '../components/ItemCard'
 import ItemDialog, { type DialogState } from '../components/ItemDialog'
+import AppMenu from '../components/AppMenu'
 
 const MIN_ZOOM = 0.1
 const MAX_ZOOM = 4
@@ -596,6 +597,7 @@ export default function BoardPage() {
             return bought > 0 ? `${label} · ${bought} bought` : label
           })()}
         </span>
+        <AppMenu />
       </header>
 
       <div

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { pb, type BoardRecord } from '../lib/pb'
+import AppMenu from '../components/AppMenu'
 
 const BOARD_EMOJIS = ['🛍️', '👗', '🏠', '🎁', '✨', '👟', '📱', '🪴', '🎨', '⌚']
 
@@ -76,10 +77,6 @@ export default function BoardsPage() {
     }
   }
 
-  function logout() {
-    pb.authStore.clear()
-    navigate('/login')
-  }
 
   return (
     <div>
@@ -89,10 +86,7 @@ export default function BoardsPage() {
           Shopping Board
         </div>
         <div className="topbar-spacer" />
-        <span className="muted">{pb.authStore.record?.email as string}</span>
-        <button className="btn btn-ghost" onClick={logout}>
-          Sign out
-        </button>
+        <AppMenu />
       </header>
 
       <main className="boards-wrap">

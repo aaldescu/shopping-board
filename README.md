@@ -30,6 +30,10 @@ the built frontend — one process, one port, one volume.
 - **Backups** — scheduled PocketBase backups (database + uploaded images),
   optionally pushed off-site to S3-compatible storage, configured by
   environment variable so a rebuilt server protects itself from first boot
+- **Chrome extension** — download it from `/extension` (already pointed at
+  your server), then add the product on any shop page with one click: it reads
+  title, price and images in your browser, so it works even where the server
+  gets blocked
 - **Pick a better image** — in the edit dialog, the 🖼️ button pulls all the
   images found on the product page (og:image, gallery images, JSON-LD, Jina
   when configured) into a grid so you can choose the one you like.
@@ -146,6 +150,37 @@ Costs are minimal: calls happen only when classic extraction comes up
 short, inputs are condensed, and a mini-tier model is the default. Any
 OpenAI-compatible endpoint works for the HTML-extraction path (step 2);
 the web-search path (step 3) requires the OpenAI Responses API.
+
+## Chrome extension
+
+Open `https://your-domain/extension` (or the ☰ menu → **🧩 Chrome
+extension**, top right on every page) and download the zip. It is built on the fly with your server's
+address already in `config.js`, so there is nothing to configure.
+
+Installing (Chrome, Edge, Brave or any Chromium browser on desktop):
+
+1. Unzip it and keep the `shopping-board-extension` folder somewhere
+   permanent; Chrome loads it from there.
+2. Open `chrome://extensions`, turn on **Developer mode**, click
+   **Load unpacked** and pick the folder.
+3. Pin it from the puzzle-piece menu.
+
+On a product page, click the icon. The first time, sign in with your board
+account (the token is kept in the extension's storage until you log out).
+The popup shows the title, price and images it found on the page (Open Graph
+tags, schema.org `Product` data and the largest images), lets you edit them,
+pick a board (or create one) and add a note. The image is copied to your
+server through `/api/img`; if the shop blocks that, the card links to the
+original image instead.
+
+The address comes from the download request (`X-Forwarded-Proto` / `Host`
+from Traefik). If it ever comes out wrong, set `APP_URL=https://your-domain`
+in the environment and download again. Mobile browsers don't support
+extensions; there, keep using the share sheet or paste the link.
+
+The source lives in `extension/`; `pb/pb_hooks/extension.pb.js` serves the
+page and the zip. To try local changes, edit `extension/config.js` to point
+at your dev server and load `extension/` unpacked.
 
 ## Admin setup page (`/setup`)
 

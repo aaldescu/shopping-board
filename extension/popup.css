@@ -1,0 +1,186 @@
+:root {
+  color-scheme: light dark;
+  --accent: #4f46e5;
+  --bg: #fff;
+  --fg: #1f2937;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --soft: #f3f4f6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111827;
+    --fg: #f3f4f6;
+    --muted: #9ca3af;
+    --border: #374151;
+    --soft: #1f2937;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  width: 340px;
+  margin: 0;
+  padding: 12px 14px 14px;
+  font: 13px/1.45 system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+p {
+  margin: 0 0 10px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+label {
+  display: block;
+  font-weight: 600;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+input,
+select,
+textarea {
+  display: block;
+  width: 100%;
+  margin-top: 3px;
+  padding: 7px 9px;
+  font: inherit;
+  font-weight: 400;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+
+select option {
+  background: var(--bg);
+}
+
+textarea {
+  resize: vertical;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+button.primary {
+  width: 100%;
+  padding: 9px;
+  margin-top: 4px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+button.primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+button.link {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  padding: 0;
+  font-size: 12px;
+}
+
+button.link:hover {
+  color: var(--fg);
+}
+
+.image-box {
+  position: relative;
+  height: 170px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  background: var(--soft);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.image-box img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.image-box .nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.image-box .prev {
+  left: 6px;
+}
+
+.image-box .next {
+  right: 6px;
+}
+
+.image-box .count {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 11px;
+}
+
+.done {
+  font-size: 14px;
+}
+
+#msg {
+  margin: 8px 0 0;
+  min-height: 0;
+}
+
+#msg:empty {
+  display: none;
+}
+
+#msg.err {
+  color: #dc2626;
+}
+
+[hidden] {
+  display: none !important;
+}

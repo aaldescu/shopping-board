@@ -24,6 +24,9 @@ services:
       # for the authenticated endpoint, or JINA_ENABLED=true for keyless.
       - JINA_API_KEY=${JINA_API_KEY:-}
       - JINA_ENABLED=${JINA_ENABLED:-}
+      # Optional: public address baked into the Chrome extension download.
+      # Normally detected from the request; set it only if that's wrong.
+      - APP_URL=${APP_URL:-}
       # Enables the /setup page for creating the admin account or resetting
       # its password (see README). Set it, use /setup, then remove it.
       - SETUP_TOKEN=${SETUP_TOKEN:-}

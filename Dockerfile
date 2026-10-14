@@ -21,6 +21,8 @@ RUN apk add --no-cache ca-certificates tzdata
 COPY --from=pbfetch /tmp/pb/pocketbase /usr/local/bin/pocketbase
 COPY pb/pb_migrations /pb/pb_migrations
 COPY pb/pb_hooks /pb/pb_hooks
+# Chrome extension, zipped on download by pb_hooks/extension.pb.js
+COPY extension /pb/extension
 COPY --from=webbuild /app/web/dist /pb/pb_public
 
 # /pb/pb_data must be mounted as a persistent volume in production.

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <img src="icons/icon32.png" alt="" width="20" height="20">
+    <strong>Shopping Board</strong>
+    <span class="spacer"></span>
+    <button id="logout" class="link" hidden>Log out</button>
+  </header>
+
+  <section id="view-loading">
+    <p class="muted">Loading…</p>
+  </section>
+
+  <section id="view-login" hidden>
+    <p class="muted">Sign in with your Shopping Board account on <b id="server-host"></b>.</p>
+    <form id="login-form">
+      <label>Email<input name="email" type="email" required autocomplete="username"></label>
+      <label>Password<input name="password" type="password" required autocomplete="current-password"></label>
+      <button type="submit" class="primary">Sign in</button>
+    </form>
+  </section>
+
+  <section id="view-add" hidden>
+    <div class="image-box">
+      <img id="image" alt="">
+      <span id="no-image" class="muted" hidden>No image</span>
+      <button id="img-prev" class="nav prev" title="Previous image">‹</button>
+      <button id="img-next" class="nav next" title="Next image">›</button>
+      <span id="img-count" class="count"></span>
+    </div>
+    <form id="add-form">
+      <label>Title<input id="title" maxlength="500"></label>
+      <label>Price<input id="price" maxlength="100" placeholder="e.g. 199 lei"></label>
+      <label>Board<select id="board"></select></label>
+      <label id="new-board-label" hidden>New board name<input id="new-board" maxlength="200"></label>
+      <label>Note<textarea id="note" rows="2" maxlength="2000" placeholder="Optional"></textarea></label>
+      <button type="submit" class="primary" id="add-btn">Add to board</button>
+    </form>
+  </section>
+
+  <section id="view-done" hidden>
+    <p class="done">✅ Added to <b id="done-board"></b></p>
+    <button id="open-board" class="primary">Open board</button>
+  </section>
+
+  <p id="msg" role="status"></p>
+
+  <script src="config.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -263,6 +263,57 @@ a {
   flex: 1;
 }
 
+/* ---------- ☰ menu ---------- */
+
+.app-menu {
+  position: relative;
+}
+
+.app-menu-list {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 220px;
+  max-width: calc(100vw - 24px);
+  padding: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(15, 15, 15, 0.15);
+  z-index: 50;
+}
+
+.app-menu-list > a,
+.app-menu-list > button {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 7px;
+  text-align: left;
+  font-size: 14px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.app-menu-list > a:hover,
+.app-menu-list > button:hover {
+  background: rgba(15, 15, 15, 0.06);
+}
+
+.app-menu-account {
+  padding: 6px 10px 8px;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-menu-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border);
+}
+
 .boards-wrap {
   max-width: 960px;
   margin: 0 auto;
