@@ -24,6 +24,9 @@ services:
       # for the authenticated endpoint, or JINA_ENABLED=true for keyless.
       - JINA_API_KEY=${JINA_API_KEY:-}
       - JINA_ENABLED=${JINA_ENABLED:-}
+      # Enables the /setup page for creating the admin account or resetting
+      # its password (see README). Set it, use /setup, then remove it.
+      - SETUP_TOKEN=${SETUP_TOKEN:-}
       # Automatic backups (see README). BACKUP_CRON enables scheduled
       # backups; the S3_* vars push them off-site so they survive the server.
       - BACKUP_CRON=${BACKUP_CRON:-}

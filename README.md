@@ -99,11 +99,9 @@ The repo ships a `Dockerfile` and `docker-compose.yml` ready for Dokploy.
    `labels:` block and add the domain in the *Domains* tab (port **8080**,
    HTTPS + Let's Encrypt).
 
-4. **Deploy**, then create the PocketBase superuser (admin) account:
-
-   ```sh
-   docker exec -it <container> pocketbase superuser upsert you@example.com <password> --dir /pb/pb_data
-   ```
+4. **Deploy**, then create the PocketBase superuser (admin) account on the
+   [`/setup` page](#admin-setup-page-setup) (or with
+   `docker exec -it <container> pocketbase superuser upsert you@example.com <password> --dir /pb/pb_data`).
 
    The admin dashboard is at `https://board.example.com/_/`.
 
@@ -148,6 +146,41 @@ Costs are minimal: calls happen only when classic extraction comes up
 short, inputs are condensed, and a mini-tier model is the default. Any
 OpenAI-compatible endpoint works for the HTML-extraction path (step 2);
 the web-search path (step 3) requires the OpenAI Responses API.
+
+## Admin setup page (`/setup`)
+
+`https://your-domain/setup` creates the PocketBase admin (superuser) account
+from the browser, or resets its password if you've forgotten it. Boards, items
+and images are not touched.
+
+The page is **off by default**. It only works while a `SETUP_TOKEN` is set on
+the server, and the form asks for that token, so only someone who can change
+the server's environment can use it.
+
+1. Generate a token (any long random string, at least 16 characters):
+
+   ```sh
+   openssl rand -hex 24
+   ```
+
+2. Add it in Dokploy → service → *Environment* and redeploy:
+
+   ```
+   SETUP_TOKEN=<the token>
+   ```
+
+3. Open `https://your-domain/setup`, enter the token, your admin email and a
+   new password. If that email already belongs to an admin, its password is
+   replaced; otherwise a new admin is created.
+4. **Remove `SETUP_TOKEN` and redeploy.** The page then shows
+   "Setup is disabled" and refuses every request.
+
+Then sign in at `https://your-domain/_/`. Wrong tokens are logged (with the
+IP) in the PocketBase logs, and each successful save is logged with the email.
+
+The admin password itself is never stored in the environment: it lives,
+hashed, in the database inside `pb_data`, so it survives redeploys and is
+included in backups.
 
 ## Backups
 
